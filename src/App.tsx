@@ -47,6 +47,11 @@ const MainAppContent: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // Set document title on mount
+  useEffect(() => {
+    document.title = 'Cleaning Flash';
+  }, []);
+
   // Scroll to top on page change
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });

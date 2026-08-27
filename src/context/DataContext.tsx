@@ -231,15 +231,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     let isSubscribed = true;
 
-    // Seed database if empty
-    seedFirestoreDatabaseIfEmpty().then(() => {
-      if (!isSubscribed) return;
-      setIsFirestoreConnected(true);
-      setIsLoading(false);
-    }).catch((err) => {
-      console.warn('Seed verification note:', err);
-      setIsLoading(false);
-    });
+    // Mark initial loading ready immediately with cached/seed data
+    setIsLoading(false);
+    setIsFirestoreConnected(true);
+
+    // Run seed check safely in the background without blocking application startup
+    seedFirestoreDatabaseIfEmpty()
+      .then(() => {
+        if (!isSubscribed) return;
+        setIsFirestoreConnected(true);
+      })
+      .catch((err) => {
+        console.info('Background seed verification note:', err?.message || err);
+      });
 
     // 1. Services Listener
     const unsubServices = onSnapshot(

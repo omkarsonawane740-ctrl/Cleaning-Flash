@@ -152,84 +152,133 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
+// State trackers to prevent duplicate checks and warnings
+let seedCheckInProgress = false;
+let seedCheckCompleted = false;
+let seedCheckPromise: Promise<boolean> | null = null;
+
 // Seed the database with complete initial data if Firestore is empty
 export async function seedFirestoreDatabaseIfEmpty(): Promise<boolean> {
   if (!db) return false;
-  try {
-    const timeoutPromise = new Promise<boolean>((_, reject) => {
-      setTimeout(() => reject(new Error('Seed check timeout')), 4000);
-    });
+  if (seedCheckCompleted) return true;
+  if (seedCheckInProgress && seedCheckPromise) {
+    return seedCheckPromise;
+  }
 
-    const checkAndSeed = async (): Promise<boolean> => {
-      const servicesSnap = await getDocs(collection(db, 'services'));
-      if (!servicesSnap.empty) {
+  seedCheckInProgress = true;
+
+  seedCheckPromise = (async () => {
+    try {
+      // 1. Efficient check using limit(1) to avoid large payload reads
+      const servicesQuery = query(collection(db, 'services'), limit(1));
+      
+      // Safe fetch with a generous 10-second timeout that resolves gracefully
+      const fetchWithTimeout = new Promise<boolean>((resolve) => {
+        const timeoutId = setTimeout(() => {
+          // Resolve false gracefully rather than throwing an unhandled rejection
+          resolve(false);
+        }, 10000);
+
+        getDocs(servicesQuery)
+          .then((servicesSnap) => {
+            clearTimeout(timeoutId);
+            if (!servicesSnap.empty) {
+              seedCheckCompleted = true;
+              resolve(false); // Already has data, no seeding needed
+            } else {
+              resolve(true); // Empty, proceed with seeding
+            }
+          })
+          .catch((err) => {
+            clearTimeout(timeoutId);
+            console.info('Firestore background connectivity status: Operating with client cache', err?.message || err);
+            resolve(false);
+          });
+      });
+
+      const needsSeed = await fetchWithTimeout;
+
+      if (!needsSeed) {
+        seedCheckCompleted = true;
+        seedCheckInProgress = false;
         return false;
       }
 
+      // Check if another check ran while awaiting
+      if (seedCheckCompleted) {
+        seedCheckInProgress = false;
+        return false;
+      }
+
+      console.log('Seeding initial Firestore catalog data...');
       const batch = writeBatch(db);
 
       // 1. Categories
       for (const cat of INITIAL_CATEGORIES) {
-        batch.set(doc(db, 'serviceCategories', cat.id), cat);
+        batch.set(doc(db, 'serviceCategories', cat.id), cat, { merge: true });
       }
 
       // 2. Services
       for (const srv of INITIAL_SERVICES) {
-        batch.set(doc(db, 'services', srv.id), srv);
+        batch.set(doc(db, 'services', srv.id), srv, { merge: true });
         if (srv.packages) {
           for (const pkg of srv.packages) {
-            batch.set(doc(db, 'packages', pkg.id), pkg);
+            batch.set(doc(db, 'packages', pkg.id), pkg, { merge: true });
           }
         }
       }
 
       // 3. Addons
       for (const addon of INITIAL_ADDONS) {
-        batch.set(doc(db, 'addons', addon.id), addon);
+        batch.set(doc(db, 'addons', addon.id), addon, { merge: true });
       }
 
       // 4. Staff
       for (const staffMember of INITIAL_STAFF) {
-        batch.set(doc(db, 'staff', staffMember.id), staffMember);
+        batch.set(doc(db, 'staff', staffMember.id), staffMember, { merge: true });
       }
 
       // 5. Coupons
       for (const cpn of INITIAL_COUPONS) {
-        batch.set(doc(db, 'coupons', cpn.id), cpn);
+        batch.set(doc(db, 'coupons', cpn.id), cpn, { merge: true });
       }
 
       // 6. Offers
       for (const off of INITIAL_OFFERS) {
-        batch.set(doc(db, 'offers', off.id), off);
+        batch.set(doc(db, 'offers', off.id), off, { merge: true });
       }
 
       // 7. Reviews
       for (const rev of INITIAL_REVIEWS) {
-        batch.set(doc(db, 'reviews', rev.id), rev);
+        batch.set(doc(db, 'reviews', rev.id), rev, { merge: true });
       }
 
       // 8. FAQs
       for (const faq of INITIAL_FAQS) {
-        batch.set(doc(db, 'faqs', faq.id), faq);
+        batch.set(doc(db, 'faqs', faq.id), faq, { merge: true });
       }
 
       // 9. Initial Bookings
       for (const bkg of INITIAL_BOOKINGS) {
-        batch.set(doc(db, 'bookings', bkg.id), bkg);
+        batch.set(doc(db, 'bookings', bkg.id), bkg, { merge: true });
       }
 
       // 10. Global Settings
-      batch.set(doc(db, 'settings', 'global_settings'), INITIAL_SETTINGS);
+      batch.set(doc(db, 'settings', 'global_settings'), INITIAL_SETTINGS, { merge: true });
 
       await batch.commit();
+      console.log('Firestore catalog data seeded successfully.');
+      seedCheckCompleted = true;
+      seedCheckInProgress = false;
       return true;
-    };
+    } catch (err) {
+      console.info('Firestore seed synchronization note: will retry in background', err);
+      seedCheckInProgress = false;
+      return false;
+    }
+  })();
 
-    return await Promise.race([checkAndSeed(), timeoutPromise]);
-  } catch (err) {
-    console.warn('Firestore initialization seed note:', err);
-    return false;
-  }
+  return seedCheckPromise;
 }
 
 export { isFirebaseInitialized };

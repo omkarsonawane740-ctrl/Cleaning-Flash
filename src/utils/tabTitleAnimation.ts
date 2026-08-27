@@ -3,7 +3,7 @@
  * Flashes the browser tab document.title with cleaning emojis during active operations.
  */
 
-const DEFAULT_TITLE = 'My Google AI Studio App';
+const DEFAULT_TITLE = 'Cleaning Flash';
 let originalTitle = typeof document !== 'undefined' ? (document.title || DEFAULT_TITLE) : DEFAULT_TITLE;
 let cleaningTitleInterval: ReturnType<typeof setInterval> | null = null;
 let activeOperationsCount = 0;
