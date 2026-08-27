@@ -1,0 +1,201 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role-based access information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "name": { "type": "string", "maxLength": 128 },
+        "phone": { "type": "string", "maxLength": 32 },
+        "role": { "type": "string", "enum": ["customer", "super_admin", "manager", "booking_executive", "accounts"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "email", "name", "role", "createdAt"]
+    },
+    "Service": {
+      "title": "Service",
+      "description": "Cleaning service offerings catalog",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "slug": { "type": "string", "maxLength": 128 },
+        "categoryId": { "type": "string", "maxLength": 64 },
+        "categoryName": { "type": "string", "maxLength": 64 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "shortDescription": { "type": "string", "maxLength": 300 },
+        "image": { "type": "string", "maxLength": 1000 },
+        "startingPrice": { "type": "number" },
+        "duration": { "type": "string", "maxLength": 64 },
+        "rating": { "type": "number" },
+        "reviewsCount": { "type": "number" },
+        "includedItems": { "type": "array" },
+        "excludedItems": { "type": "array" },
+        "isActive": { "type": "boolean" },
+        "isPopular": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "slug", "categoryId", "startingPrice", "isActive"]
+    },
+    "Package": {
+      "title": "Package",
+      "description": "Tiered package for a specific cleaning service",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "serviceId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "price": { "type": "number" },
+        "originalPrice": { "type": "number" },
+        "duration": { "type": "string", "maxLength": 64 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "includedServices": { "type": "array" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id", "serviceId", "name", "price", "isActive"]
+    },
+    "Addon": {
+      "title": "Addon",
+      "description": "Supplementary cleaning item that can be added to any booking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "price": { "type": "number" },
+        "description": { "type": "string", "maxLength": 500 },
+        "image": { "type": "string", "maxLength": 1000 },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id", "name", "price", "isActive"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Cleaning service booking reservation record",
+      "type": "object",
+      "properties": {
+        "bookingId": { "type": "string", "maxLength": 64 },
+        "customerId": { "type": "string", "maxLength": 128 },
+        "customerName": { "type": "string", "maxLength": 128 },
+        "customerMobile": { "type": "string", "maxLength": 32 },
+        "customerEmail": { "type": "string", "maxLength": 256 },
+        "serviceId": { "type": "string", "maxLength": 128 },
+        "serviceName": { "type": "string", "maxLength": 128 },
+        "packageId": { "type": "string", "maxLength": 128 },
+        "packageName": { "type": "string", "maxLength": 128 },
+        "addons": { "type": "array" },
+        "address": { "type": "object" },
+        "date": { "type": "string", "maxLength": 32 },
+        "timeSlot": { "type": "string", "maxLength": 64 },
+        "subtotal": { "type": "number" },
+        "discount": { "type": "number" },
+        "couponCode": { "type": "string", "maxLength": 32 },
+        "tax": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "paymentMethod": { "type": "string", "enum": ["online", "cash"] },
+        "paymentStatus": { "type": "string", "enum": ["paid", "pending", "failed", "refunded"] },
+        "bookingStatus": { "type": "string", "enum": ["pending", "confirmed", "assigned", "on_the_way", "in_progress", "completed", "cancelled", "rescheduled"] },
+        "assignedStaffId": { "type": "string", "maxLength": 128 },
+        "assignedStaffName": { "type": "string", "maxLength": 128 },
+        "customerNotes": { "type": "string", "maxLength": 1000 },
+        "adminNotes": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["bookingId", "customerId", "customerName", "customerMobile", "serviceId", "serviceName", "date", "timeSlot", "totalAmount", "paymentStatus", "bookingStatus", "createdAt"]
+    },
+    "Staff": {
+      "title": "Staff",
+      "description": "Cleaning team staff member record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "mobile": { "type": "string", "maxLength": 32 },
+        "email": { "type": "string", "maxLength": 256 },
+        "photo": { "type": "string", "maxLength": 1000 },
+        "serviceArea": { "type": "string", "maxLength": 128 },
+        "skills": { "type": "array" },
+        "rating": { "type": "number" },
+        "completedJobs": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "busy", "inactive", "on_leave"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "mobile", "serviceArea", "status"]
+    },
+    "Coupon": {
+      "title": "Coupon",
+      "description": "Promotional discount coupon code",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "maxLength": 32 },
+        "discountType": { "type": "string", "enum": ["percentage", "flat"] },
+        "discountValue": { "type": "number" },
+        "minimumOrder": { "type": "number" },
+        "maximumDiscount": { "type": "number" },
+        "startDate": { "type": "string", "maxLength": 32 },
+        "expiryDate": { "type": "string", "maxLength": 32 },
+        "usageLimit": { "type": "number" },
+        "usedCount": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "description": { "type": "string", "maxLength": 300 }
+      },
+      "required": ["code", "discountType", "discountValue", "isActive"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Customer service feedback and rating",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "bookingId": { "type": "string", "maxLength": 64 },
+        "customerId": { "type": "string", "maxLength": 128 },
+        "customerName": { "type": "string", "maxLength": 128 },
+        "serviceId": { "type": "string", "maxLength": 128 },
+        "serviceName": { "type": "string", "maxLength": 128 },
+        "rating": { "type": "number" },
+        "comment": { "type": "string", "maxLength": 2000 },
+        "photoUrl": { "type": "string", "maxLength": 1000 },
+        "isApproved": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "bookingId", "customerId", "customerName", "serviceId", "rating", "comment", "isApproved", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile with role information"
+    },
+    "/services/{serviceId}": {
+      "schema": "Service",
+      "description": "Cleaning services catalog"
+    },
+    "/packages/{packageId}": {
+      "schema": "Package",
+      "description": "Service pricing tiers"
+    },
+    "/addons/{addonId}": {
+      "schema": "Addon",
+      "description": "Add-on services"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Customer reservations and statuses"
+    },
+    "/staff/{staffId}": {
+      "schema": "Staff",
+      "description": "Staff roster and assignment info"
+    },
+    "/coupons/{couponId}": {
+      "schema": "Coupon",
+      "description": "Discount coupon catalog"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Customer feedback and ratings"
+    }
+  }
+}

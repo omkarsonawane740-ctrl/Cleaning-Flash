@@ -1,0 +1,159 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'manager', 'booking_executive', 'accounts']) ||
+        request.auth.token.email == 'omkarsonawane740@gmail.com'
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && request.auth.uid == userId &&
+        incoming().id == userId &&
+        (incoming().role == 'customer' || isAdmin());
+      allow update: if isOwner(userId) && (
+        !incoming().diff(existing()).affectedKeys().hasAny(['role']) || isAdmin()
+      ) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Admins Collection
+    match /admins/{adminId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Services Catalog
+    match /services/{serviceId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Categories
+    match /serviceCategories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Packages
+    match /packages/{packageId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Addons
+    match /addons/{addonId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Bookings
+    match /bookings/{bookingId} {
+      allow get: if (isSignedIn() && (resource.data.customerId == request.auth.uid || isAdmin()));
+      allow list: if (isSignedIn() && (resource.data.customerId == request.auth.uid || isAdmin()));
+      allow create: if (isSignedIn() && (incoming().customerId == request.auth.uid || isAdmin())) || true;
+      allow update: if isAdmin() || (
+        isSignedIn() && resource.data.customerId == request.auth.uid &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['bookingStatus', 'customerNotes', 'date', 'timeSlot', 'updatedAt'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Staff
+    match /staff/{staffId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Coupons
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Offers
+    match /offers/{offerId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Reviews
+    match /reviews/{reviewId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if isSignedIn() && (incoming().customerId == request.auth.uid || isAdmin());
+      allow update: if isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // FAQs
+    match /faqs/{faqId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Contact Messages
+    match /contactMessages/{messageId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.recipientId == request.auth.uid);
+      allow write: if isAdmin();
+    }
+
+    // Settings
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Audit Logs
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Payments
+    match /payments/{paymentId} {
+      allow get: if isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid);
+      allow list: if isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid);
+      allow write: if isAdmin() || (isSignedIn() && incoming().customerId == request.auth.uid);
+    }
+  }
+}
