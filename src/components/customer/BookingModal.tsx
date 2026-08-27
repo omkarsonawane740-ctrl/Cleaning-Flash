@@ -3,6 +3,7 @@ import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { Service, ServicePackage, SelectedAddon, UserAddress, Booking } from '../../types';
 import confetti from 'canvas-confetti';
+import { startCleaningTabTitle, stopCleaningTabTitle } from '../../utils/tabTitleAnimation';
 import {
   X,
   Sparkles,
@@ -206,71 +207,80 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     }
 
     setIsProcessingPayment(true);
+    startCleaningTabTitle();
 
-    // Save address if requested
-    let currentAddressObj: UserAddress = {
-      id: selectedAddressId === 'custom' ? `addr-${Date.now()}` : selectedAddressId,
-      type: 'Home',
-      flatNo,
-      building,
-      address: addressLine,
-      area,
-      city,
-      pincode,
-      landmark,
-      isDefault: false
-    };
-
-    if (user && saveToAccount && selectedAddressId === 'custom') {
-      try {
-        await addAddress(currentAddressObj);
-      } catch (e) {
-        console.error('Failed to save address:', e);
-      }
-    }
-
-    // Payment simulation delay
-    await new Promise((r) => setTimeout(r, 800));
-
-    const newBooking = await createBooking({
-      customerId: user?.uid || `guest-${Date.now()}`,
-      customerName,
-      customerMobile,
-      customerEmail: customerEmail || 'guest@cleaningflash.com',
-      serviceId: activeService.id,
-      serviceName: activeService.name,
-      serviceImage: activeService.image,
-      packageId: currentPackage.id,
-      packageName: currentPackage.name,
-      packagePrice: currentPackage.price,
-      addons: selectedAddons,
-      address: currentAddressObj,
-      date: bookingDate,
-      timeSlot: selectedSlot,
-      subtotal,
-      discount: discountAmount,
-      couponCode: appliedCouponCode || undefined,
-      tax: taxAmount,
-      totalAmount: finalTotal,
-      paymentMethod,
-      paymentStatus: paymentMethod === 'online' ? 'paid' : 'pending',
-      bookingStatus: 'pending',
-      customerNotes: specialInstructions
-    });
-
-    setIsProcessingPayment(false);
-    setConfirmedBooking(newBooking);
-    setCurrentStep(6);
-
-    // Launch confetti celebration
     try {
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 }
+      // Save address if requested
+      let currentAddressObj: UserAddress = {
+        id: selectedAddressId === 'custom' ? `addr-${Date.now()}` : selectedAddressId,
+        type: 'Home',
+        flatNo,
+        building,
+        address: addressLine,
+        area,
+        city,
+        pincode,
+        landmark,
+        isDefault: false
+      };
+
+      if (user && saveToAccount && selectedAddressId === 'custom') {
+        try {
+          await addAddress(currentAddressObj);
+        } catch (e) {
+          console.error('Failed to save address:', e);
+        }
+      }
+
+      // Payment simulation delay
+      await new Promise((r) => setTimeout(r, 800));
+
+      const newBooking = await createBooking({
+        customerId: user?.uid || `guest-${Date.now()}`,
+        customerName,
+        customerMobile,
+        customerEmail: customerEmail || 'guest@cleaningflash.com',
+        serviceId: activeService.id,
+        serviceName: activeService.name,
+        serviceImage: activeService.image,
+        packageId: currentPackage.id,
+        packageName: currentPackage.name,
+        packagePrice: currentPackage.price,
+        addons: selectedAddons,
+        address: currentAddressObj,
+        date: bookingDate,
+        timeSlot: selectedSlot,
+        subtotal,
+        discount: discountAmount,
+        couponCode: appliedCouponCode || undefined,
+        tax: taxAmount,
+        totalAmount: finalTotal,
+        paymentMethod,
+        paymentStatus: paymentMethod === 'online' ? 'paid' : 'pending',
+        bookingStatus: 'pending',
+        customerNotes: specialInstructions
       });
-    } catch {
-      // safe fallback
+
+      setConfirmedBooking(newBooking);
+      setCurrentStep(6);
+
+      // Launch confetti celebration
+      try {
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      } catch {
+        // safe fallback
+      }
+    } catch (error) {
+      stopCleaningTabTitle(true);
+      console.error('Cleaning booking confirmation error:', error);
+      alert('An error occurred while confirming your cleaning service. Please try again.');
+    } finally {
+      setIsProcessingPayment(false);
+      stopCleaningTabTitle();
     }
   };
 

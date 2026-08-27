@@ -48,6 +48,11 @@ import {
   getDocs,
   getDoc
 } from 'firebase/firestore';
+import {
+  startCleaningTabTitle,
+  stopCleaningTabTitle,
+  withCleaningTabTitle
+} from '../utils/tabTitleAnimation';
 
 interface DataContextType {
   services: Service[];
@@ -65,6 +70,8 @@ interface DataContextType {
   settings: WebsiteSettings;
   isLoading: boolean;
   isFirestoreConnected: boolean;
+  startCleaningTabTitle: () => void;
+  stopCleaningTabTitle: (force?: boolean) => void;
 
   // Service CRUD
   addService: (service: Omit<Service, 'id' | 'createdAt'>) => Promise<Service>;
@@ -1406,6 +1413,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         settings,
         isLoading,
         isFirestoreConnected,
+        startCleaningTabTitle,
+        stopCleaningTabTitle,
         addService,
         updateService,
         deleteService,
