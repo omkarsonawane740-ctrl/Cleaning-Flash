@@ -91,8 +91,9 @@ const firebaseConfig = {
 try {
   appInstance = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
   
-  if (firebaseConfigData.firestoreDatabaseId && firebaseConfigData.firestoreDatabaseId.trim() !== '') {
-    dbInstance = getFirestore(appInstance, firebaseConfigData.firestoreDatabaseId);
+  const dbId = import.meta.env.VITE_FIREBASE_DATABASE_ID || firebaseConfigData.firestoreDatabaseId;
+  if (dbId && dbId.trim() !== '') {
+    dbInstance = getFirestore(appInstance, dbId.trim());
   } else {
     dbInstance = getFirestore(appInstance);
   }
@@ -112,7 +113,12 @@ try {
     appId: '1:438258239671:web:cleaning-flash'
   };
   appInstance = getApps().length === 0 ? initializeApp(fallbackConfig) : getApp();
-  dbInstance = getFirestore(appInstance);
+  const dbId = firebaseConfigData.firestoreDatabaseId;
+  if (dbId && dbId.trim() !== '') {
+    dbInstance = getFirestore(appInstance, dbId.trim());
+  } else {
+    dbInstance = getFirestore(appInstance);
+  }
   authInstance = getAuth(appInstance);
   storageInstance = getStorage(appInstance);
   console.log(`Firebase initialized successfully with project:\n${fallbackConfig.projectId}`);
