@@ -26,6 +26,7 @@ import {
   Auth,
   signInAnonymously
 } from 'firebase/auth';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 import firebaseConfigData from '../../firebase-applet-config.json';
 import {
   INITIAL_CATEGORIES,
@@ -69,43 +70,58 @@ export interface FirestoreErrorInfo {
 let appInstance: FirebaseApp;
 let dbInstance: Firestore;
 let authInstance: Auth;
+let storageInstance: FirebaseStorage;
 let isFirebaseInitialized = false;
 
-try {
-  const firebaseConfig = {
-    apiKey: firebaseConfigData.apiKey,
-    authDomain: firebaseConfigData.authDomain,
-    projectId: firebaseConfigData.projectId,
-    storageBucket: firebaseConfigData.storageBucket,
-    messagingSenderId: firebaseConfigData.messagingSenderId,
-    appId: firebaseConfigData.appId
-  };
+// Resolve Firebase configuration for project: cleaning-flash
+const projectId =
+  import.meta.env.VITE_FIREBASE_PROJECT_ID ||
+  firebaseConfigData.projectId ||
+  'cleaning-flash';
 
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfigData.apiKey || 'AIzaSyDYUgoMsTS0GNsmI6gVvUTMm5VnvNQvL4Q',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfigData.authDomain || `${projectId}.firebaseapp.com`,
+  projectId: projectId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfigData.storageBucket || `${projectId}.firebasestorage.app`,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfigData.messagingSenderId || '438258239671',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfigData.appId || `1:438258239671:web:cleaning-flash`
+};
+
+try {
   appInstance = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
   
-  if (firebaseConfigData.firestoreDatabaseId) {
+  if (firebaseConfigData.firestoreDatabaseId && firebaseConfigData.firestoreDatabaseId.trim() !== '') {
     dbInstance = getFirestore(appInstance, firebaseConfigData.firestoreDatabaseId);
   } else {
     dbInstance = getFirestore(appInstance);
   }
   
   authInstance = getAuth(appInstance);
+  storageInstance = getStorage(appInstance);
   isFirebaseInitialized = true;
+  console.log(`Firebase initialized successfully with project:\n${firebaseConfig.projectId}`);
 } catch (e) {
   console.warn('Firebase initialization note:', e);
   const fallbackConfig = {
     apiKey: 'AIzaSyDYUgoMsTS0GNsmI6gVvUTMm5VnvNQvL4Q',
-    authDomain: 'gen-lang-client-0442123702.firebaseapp.com',
-    projectId: 'gen-lang-client-0442123702'
+    authDomain: 'cleaning-flash.firebaseapp.com',
+    projectId: 'cleaning-flash',
+    storageBucket: 'cleaning-flash.firebasestorage.app',
+    messagingSenderId: '438258239671',
+    appId: '1:438258239671:web:cleaning-flash'
   };
   appInstance = getApps().length === 0 ? initializeApp(fallbackConfig) : getApp();
   dbInstance = getFirestore(appInstance);
   authInstance = getAuth(appInstance);
+  storageInstance = getStorage(appInstance);
+  console.log(`Firebase initialized successfully with project:\n${fallbackConfig.projectId}`);
 }
 
 export const app = appInstance;
 export const db = dbInstance;
 export const auth = authInstance;
+export const storage = storageInstance;
 export const googleProvider = new GoogleAuthProvider();
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
@@ -134,9 +150,8 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 export async function seedFirestoreDatabaseIfEmpty(): Promise<boolean> {
   if (!db) return false;
   try {
-    // Timeout check after 4 seconds to avoid hanging on slow network
     const timeoutPromise = new Promise<boolean>((_, reject) => {
-      setTimeout(() => reject(new Error('Seed check timeout - offline fallback')), 4000);
+      setTimeout(() => reject(new Error('Seed check timeout')), 4000);
     });
 
     const checkAndSeed = async (): Promise<boolean> => {
@@ -206,11 +221,9 @@ export async function seedFirestoreDatabaseIfEmpty(): Promise<boolean> {
 
     return await Promise.race([checkAndSeed(), timeoutPromise]);
   } catch (err) {
-    console.warn('Firestore seed note (operating in offline/cached mode):', err);
+    console.warn('Firestore initialization seed note:', err);
     return false;
   }
 }
 
 export { isFirebaseInitialized };
-
-

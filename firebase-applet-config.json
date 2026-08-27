@@ -1,12 +1,12 @@
 {
-  "projectId": "gen-lang-client-0442123702",
-  "appId": "1:130663356675:web:7465d8a5be9b6f52647136",
+  "projectId": "cleaning-flash",
+  "appId": "1:438258239671:web:cleaning-flash",
   "apiKey": "AIzaSyDYUgoMsTS0GNsmI6gVvUTMm5VnvNQvL4Q",
-  "authDomain": "gen-lang-client-0442123702.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-cleaningflash-d8979c64-8c80-496b-9a0b-50e8f5fb7cd5",
-  "storageBucket": "gen-lang-client-0442123702.firebasestorage.app",
-  "messagingSenderId": "130663356675",
+  "authDomain": "cleaning-flash.firebaseapp.com",
+  "firestoreDatabaseId": "",
+  "storageBucket": "cleaning-flash.firebasestorage.app",
+  "messagingSenderId": "438258239671",
   "measurementId": "",
-  "oAuthClientId": "130663356675-7roh9iatvon2s3aii0ce8fof2ne4aj7b.apps.googleusercontent.com",
+  "oAuthClientId": "",
   "recaptchaSiteKey": ""
 }
