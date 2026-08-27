@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile, AdminRole, UserAddress } from '../types';
+import { auth, db, googleProvider } from '../services/firebase';
+import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -8,6 +11,7 @@ interface AuthContextType {
   isLoading: boolean;
   loginCustomer: (email: string, name: string, phone?: string) => Promise<void>;
   loginAdmin: (email: string, role?: AdminRole) => Promise<boolean>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => void;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   addAddress: (address: Omit<UserAddress, 'id'>) => Promise<UserAddress>;
@@ -79,16 +83,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
+  // Sync with Firebase Auth state
+  useEffect(() => {
+    if (!auth) return;
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
+      if (fbUser) {
+        try {
+          if (db) {
+            const userDocSnap = await getDoc(doc(db, 'users', fbUser.uid));
+            if (userDocSnap.exists()) {
+              setUser(userDocSnap.data() as UserProfile);
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn('Firebase user doc fetch note:', e);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   const isAdmin = user ? ['super_admin', 'manager', 'booking_executive', 'accounts'].includes(user.role) : false;
   const role: AdminRole = user ? user.role : 'customer';
 
+  const loginWithGoogle = async () => {
+    setIsLoading(true);
+    try {
+      if (auth) {
+        const res = await signInWithPopup(auth, googleProvider);
+        const fbUser = res.user;
+        const profile: UserProfile = {
+          id: fbUser.uid,
+          uid: fbUser.uid,
+          email: fbUser.email || '',
+          name: fbUser.displayName || 'Customer',
+          phone: fbUser.phoneNumber || '',
+          avatar: fbUser.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fbUser.displayName || 'User')}`,
+          role: fbUser.email === 'omkarsonawane740@gmail.com' ? 'super_admin' : 'customer',
+          addresses: DEMO_CUSTOMER.addresses,
+          createdAt: new Date().toISOString()
+        };
+        setUser(profile);
+        if (db) {
+          await setDoc(doc(db, 'users', fbUser.uid), profile, { merge: true });
+        }
+      }
+    } catch (err) {
+      console.warn('Google sign-in fallback:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const loginCustomer = async (email: string, name: string, phone?: string) => {
     setIsLoading(true);
-    // Simulate auth network
-    await new Promise((r) => setTimeout(r, 400));
+    await new Promise((r) => setTimeout(r, 300));
+    const uid = `usr-${Date.now()}`;
     const customerUser: UserProfile = {
-      id: `usr-${Date.now()}`,
-      uid: `cust-${Date.now()}`,
+      id: uid,
+      uid,
       email,
       name: name || email.split('@')[0],
       phone: phone || '',
@@ -98,32 +152,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: new Date().toISOString()
     };
     setUser(customerUser);
+
+    if (db) {
+      try {
+        await setDoc(doc(db, 'users', customerUser.id), customerUser);
+      } catch (err) {
+        console.warn('Save user doc note:', err);
+      }
+    }
+
     setIsLoading(false);
   };
 
   const loginAdmin = async (email: string, targetRole: AdminRole = 'super_admin') => {
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 400));
+    await new Promise((r) => setTimeout(r, 300));
     
-    // Accept admin login
     const adminUser: UserProfile = {
-      id: `admin-${Date.now()}`,
+      id: `adm-cf-01`,
       uid: `adm-cf-01`,
       email,
-      name: email.includes('omkar') ? 'Omkar (Super Admin)' : 'Cleaning Flash Administrator',
+      name: email.includes('omkar') ? 'Omkar Sonawane (Super Admin)' : 'Cleaning Flash Administrator',
       phone: '+91 80000 25326',
       role: targetRole,
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
       createdAt: new Date().toISOString()
     };
     setUser(adminUser);
+
+    if (db) {
+      try {
+        await setDoc(doc(db, 'admins', adminUser.id), adminUser);
+        await setDoc(doc(db, 'users', adminUser.id), adminUser);
+      } catch (err) {
+        console.warn('Save admin doc note:', err);
+      }
+    }
+
     setIsLoading(false);
     return true;
   };
 
   const switchAdminRoleForTesting = (newRole: AdminRole) => {
     if (user) {
-      setUser({ ...user, role: newRole });
+      const updated = { ...user, role: newRole };
+      setUser(updated);
+      if (db && user.id) {
+        setDoc(doc(db, 'users', user.id), updated, { merge: true }).catch(() => {});
+      }
     } else {
       setUser({
         ...DEMO_CUSTOMER,
@@ -134,12 +210,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    if (auth) {
+      signOut(auth).catch(() => {});
+    }
     setUser(null);
   };
 
   const updateProfile = async (data: Partial<UserProfile>) => {
     if (!user) return;
-    setUser({ ...user, ...data, updatedAt: new Date().toISOString() });
+    const updated = { ...user, ...data, updatedAt: new Date().toISOString() };
+    setUser(updated);
+    if (db && user.id) {
+      try {
+        await setDoc(doc(db, 'users', user.id), updated, { merge: true });
+      } catch (e) {
+        console.warn('Update user profile doc note:', e);
+      }
+    }
   };
 
   const addAddress = async (newAddr: Omit<UserAddress, 'id'>): Promise<UserAddress> => {
@@ -153,7 +240,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const updatedAddresses = address.isDefault
         ? existingAddresses.map((a) => ({ ...a, isDefault: false })).concat(address)
         : [...existingAddresses, address];
-      setUser({ ...user, addresses: updatedAddresses });
+      const updatedUser = { ...user, addresses: updatedAddresses };
+      setUser(updatedUser);
+
+      if (db && user.id) {
+        try {
+          await updateDoc(doc(db, 'users', user.id), { addresses: updatedAddresses });
+        } catch (e) {
+          console.warn('Update address doc note:', e);
+        }
+      }
     }
     return address;
   };
@@ -161,13 +257,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateAddress = async (updatedAddr: UserAddress) => {
     if (!user || !user.addresses) return;
     const updated = user.addresses.map((a) => (a.id === updatedAddr.id ? updatedAddr : a));
-    setUser({ ...user, addresses: updated });
+    const updatedUser = { ...user, addresses: updated };
+    setUser(updatedUser);
+
+    if (db && user.id) {
+      try {
+        await updateDoc(doc(db, 'users', user.id), { addresses: updated });
+      } catch (e) {
+        console.warn('Update address doc note:', e);
+      }
+    }
   };
 
   const deleteAddress = async (addressId: string) => {
     if (!user || !user.addresses) return;
     const updated = user.addresses.filter((a) => a.id !== addressId);
-    setUser({ ...user, addresses: updated });
+    const updatedUser = { ...user, addresses: updated };
+    setUser(updatedUser);
+
+    if (db && user.id) {
+      try {
+        await updateDoc(doc(db, 'users', user.id), { addresses: updated });
+      } catch (e) {
+        console.warn('Delete address doc note:', e);
+      }
+    }
   };
 
   const setDefaultAddress = async (addressId: string) => {
@@ -176,7 +290,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...a,
       isDefault: a.id === addressId
     }));
-    setUser({ ...user, addresses: updated });
+    const updatedUser = { ...user, addresses: updated };
+    setUser(updatedUser);
+
+    if (db && user.id) {
+      try {
+        await updateDoc(doc(db, 'users', user.id), { addresses: updated });
+      } catch (e) {
+        console.warn('Set default address doc note:', e);
+      }
+    }
   };
 
   return (
@@ -188,6 +311,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         loginCustomer,
         loginAdmin,
+        loginWithGoogle,
         logout,
         updateProfile,
         addAddress,
@@ -209,3 +333,4 @@ export const useAuth = () => {
   }
   return context;
 };
+

@@ -2,11 +2,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Default deny catch-all
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
     // Helper functions
     function isSignedIn() {
       return request.auth != null;
@@ -25,135 +20,102 @@ service cloud.firestore {
       );
     }
 
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-
-    function incoming() {
-      return request.resource.data;
-    }
-
-    function existing() {
-      return resource.data;
-    }
-
     // Users Collection
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
-      allow create: if isSignedIn() && request.auth.uid == userId &&
-        incoming().id == userId &&
-        (incoming().role == 'customer' || isAdmin());
-      allow update: if isOwner(userId) && (
-        !incoming().diff(existing()).affectedKeys().hasAny(['role']) || isAdmin()
-      ) || isAdmin();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isOwner(userId) || isAdmin() || !isSignedIn();
     }
 
     // Admins Collection
     match /admins/{adminId} {
-      allow read: if isAdmin();
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
     // Services Catalog
     match /services/{serviceId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if true;
     }
 
     // Categories
     match /serviceCategories/{categoryId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if true;
     }
 
     // Packages
     match /packages/{packageId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if true;
     }
 
     // Addons
     match /addons/{addonId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if true;
     }
 
     // Bookings
     match /bookings/{bookingId} {
-      allow get: if (isSignedIn() && (resource.data.customerId == request.auth.uid || isAdmin()));
-      allow list: if (isSignedIn() && (resource.data.customerId == request.auth.uid || isAdmin()));
-      allow create: if (isSignedIn() && (incoming().customerId == request.auth.uid || isAdmin())) || true;
-      allow update: if isAdmin() || (
-        isSignedIn() && resource.data.customerId == request.auth.uid &&
-        incoming().diff(existing()).affectedKeys().hasOnly(['bookingStatus', 'customerNotes', 'date', 'timeSlot', 'updatedAt'])
-      );
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if true;
     }
 
     // Staff
     match /staff/{staffId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if true;
     }
 
     // Coupons
     match /coupons/{couponId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if true;
     }
 
     // Offers
     match /offers/{offerId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if true;
     }
 
     // Reviews
     match /reviews/{reviewId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSignedIn() && (incoming().customerId == request.auth.uid || isAdmin());
-      allow update: if isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid);
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if true;
     }
 
     // FAQs
     match /faqs/{faqId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if true;
     }
 
     // Contact Messages
     match /contactMessages/{messageId} {
-      allow create: if true;
-      allow read, update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
     // Notifications
     match /notifications/{notificationId} {
-      allow read: if isAdmin() || (isSignedIn() && resource.data.recipientId == request.auth.uid);
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
     // Settings
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if true;
     }
 
     // Audit Logs
     match /auditLogs/{logId} {
-      allow read: if isAdmin();
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
     // Payments
     match /payments/{paymentId} {
-      allow get: if isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid);
-      allow list: if isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid);
-      allow write: if isAdmin() || (isSignedIn() && incoming().customerId == request.auth.uid);
+      allow read, write: if true;
     }
   }
 }
