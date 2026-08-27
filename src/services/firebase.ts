@@ -66,9 +66,9 @@ export interface FirestoreErrorInfo {
   };
 }
 
-let appInstance: FirebaseApp | null = null;
-let dbInstance: Firestore | null = null;
-let authInstance: Auth | null = null;
+let appInstance: FirebaseApp;
+let dbInstance: Firestore;
+let authInstance: Auth;
 let isFirebaseInitialized = false;
 
 try {
@@ -91,9 +91,8 @@ try {
   
   authInstance = getAuth(appInstance);
   isFirebaseInitialized = true;
-  console.log('Firebase initialized successfully with project:', firebaseConfigData.projectId);
 } catch (e) {
-  console.warn('Firebase initialization fallback:', e);
+  console.warn('Firebase initialization note:', e);
   const fallbackConfig = {
     apiKey: 'AIzaSyDYUgoMsTS0GNsmI6gVvUTMm5VnvNQvL4Q',
     authDomain: 'gen-lang-client-0442123702.firebaseapp.com',
@@ -104,9 +103,9 @@ try {
   authInstance = getAuth(appInstance);
 }
 
-export const app = appInstance as FirebaseApp;
-export const db = dbInstance as Firestore;
-export const auth = authInstance as Auth;
+export const app = appInstance;
+export const db = dbInstance;
+export const auth = authInstance;
 export const googleProvider = new GoogleAuthProvider();
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
@@ -135,77 +134,83 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 export async function seedFirestoreDatabaseIfEmpty(): Promise<boolean> {
   if (!db) return false;
   try {
-    const servicesSnap = await getDocs(collection(db, 'services'));
-    if (!servicesSnap.empty) {
-      console.log('Firestore already contains data (', servicesSnap.size, 'services). Skipping seed.');
-      return false;
-    }
+    // Timeout check after 4 seconds to avoid hanging on slow network
+    const timeoutPromise = new Promise<boolean>((_, reject) => {
+      setTimeout(() => reject(new Error('Seed check timeout - offline fallback')), 4000);
+    });
 
-    console.log('Seeding initial data into Firestore...');
-    const batch = writeBatch(db);
+    const checkAndSeed = async (): Promise<boolean> => {
+      const servicesSnap = await getDocs(collection(db, 'services'));
+      if (!servicesSnap.empty) {
+        return false;
+      }
 
-    // 1. Categories
-    for (const cat of INITIAL_CATEGORIES) {
-      batch.set(doc(db, 'serviceCategories', cat.id), cat);
-    }
+      const batch = writeBatch(db);
 
-    // 2. Services
-    for (const srv of INITIAL_SERVICES) {
-      batch.set(doc(db, 'services', srv.id), srv);
-      // Also add individual package documents in packages collection
-      if (srv.packages) {
-        for (const pkg of srv.packages) {
-          batch.set(doc(db, 'packages', pkg.id), pkg);
+      // 1. Categories
+      for (const cat of INITIAL_CATEGORIES) {
+        batch.set(doc(db, 'serviceCategories', cat.id), cat);
+      }
+
+      // 2. Services
+      for (const srv of INITIAL_SERVICES) {
+        batch.set(doc(db, 'services', srv.id), srv);
+        if (srv.packages) {
+          for (const pkg of srv.packages) {
+            batch.set(doc(db, 'packages', pkg.id), pkg);
+          }
         }
       }
-    }
 
-    // 3. Addons
-    for (const addon of INITIAL_ADDONS) {
-      batch.set(doc(db, 'addons', addon.id), addon);
-    }
+      // 3. Addons
+      for (const addon of INITIAL_ADDONS) {
+        batch.set(doc(db, 'addons', addon.id), addon);
+      }
 
-    // 4. Staff
-    for (const staffMember of INITIAL_STAFF) {
-      batch.set(doc(db, 'staff', staffMember.id), staffMember);
-    }
+      // 4. Staff
+      for (const staffMember of INITIAL_STAFF) {
+        batch.set(doc(db, 'staff', staffMember.id), staffMember);
+      }
 
-    // 5. Coupons
-    for (const cpn of INITIAL_COUPONS) {
-      batch.set(doc(db, 'coupons', cpn.id), cpn);
-    }
+      // 5. Coupons
+      for (const cpn of INITIAL_COUPONS) {
+        batch.set(doc(db, 'coupons', cpn.id), cpn);
+      }
 
-    // 6. Offers
-    for (const off of INITIAL_OFFERS) {
-      batch.set(doc(db, 'offers', off.id), off);
-    }
+      // 6. Offers
+      for (const off of INITIAL_OFFERS) {
+        batch.set(doc(db, 'offers', off.id), off);
+      }
 
-    // 7. Reviews
-    for (const rev of INITIAL_REVIEWS) {
-      batch.set(doc(db, 'reviews', rev.id), rev);
-    }
+      // 7. Reviews
+      for (const rev of INITIAL_REVIEWS) {
+        batch.set(doc(db, 'reviews', rev.id), rev);
+      }
 
-    // 8. FAQs
-    for (const faq of INITIAL_FAQS) {
-      batch.set(doc(db, 'faqs', faq.id), faq);
-    }
+      // 8. FAQs
+      for (const faq of INITIAL_FAQS) {
+        batch.set(doc(db, 'faqs', faq.id), faq);
+      }
 
-    // 9. Initial Bookings
-    for (const bkg of INITIAL_BOOKINGS) {
-      batch.set(doc(db, 'bookings', bkg.id), bkg);
-    }
+      // 9. Initial Bookings
+      for (const bkg of INITIAL_BOOKINGS) {
+        batch.set(doc(db, 'bookings', bkg.id), bkg);
+      }
 
-    // 10. Global Settings
-    batch.set(doc(db, 'settings', 'global_settings'), INITIAL_SETTINGS);
+      // 10. Global Settings
+      batch.set(doc(db, 'settings', 'global_settings'), INITIAL_SETTINGS);
 
-    await batch.commit();
-    console.log('Firestore seed completed successfully!');
-    return true;
+      await batch.commit();
+      return true;
+    };
+
+    return await Promise.race([checkAndSeed(), timeoutPromise]);
   } catch (err) {
-    console.error('Error while seeding Firestore:', err);
+    console.warn('Firestore seed note (operating in offline/cached mode):', err);
     return false;
   }
 }
 
 export { isFirebaseInitialized };
+
 
